@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Blobs</title>
+	<link href="https://fonts.googleapis.com/css?family=Roboto+Mono" rel="stylesheet">
+
+	<script type="text/javascript" src = https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.11.5/paper-full.min.js></script>
+
+	<link rel="stylesheet" type="text/css" href="example.css">
+	<script type="text/javascript" src = 'https://cdnjs.cloudflare.com/ajax/libs/howler/2.0.9/howler.core.min.js'></script>
+</head>
+<body>
+	<script type="text/paperscript" canvas = 'myCanvas'>
+
+	function randomPoint(){
+		var maxPoint = new Point(view.size.width, view.size.height);
+		var randomPoint = Point.random();
+		var viewPoint = maxPoint*randomPoint;
+		return viewPoint;
+		}
+	
+	var splatMusic = new Howl({
+		src:['object.mp3'],
+		volume: 0.2,
+	});
+
+	var backgroundMusic = new Howl({
+		src:['river-2.mp3'],
+		autoplay: true,
+		 loop: true,
+		 volume: 0.2,
+	});
+	
+	var musicOn = new PointText({
+		content: 'Background Music: On',
+		point:[50,50],
+		fillColor:'white',
+		fontFamily:'Roboto Mono',
+		fontWeight: 'bolt',
+		fontSize:50
+	})
+
+	musicOn.onClick = function(event){
+
+	if( this.content == 'Background Music: On'){
+		this.content = 'Background Music: Off';
+		backgroundMusic.pause();
+	}
+	else{
+		this.content = 'Background Music: On';
+		backgroundMusic.autoplay = true;
+		backgroundMusic.play();
+	}
+}
+	pointer = 0;
+
+	var text = new PointText({
+			fontFamily: 'Roboto Mono',
+			fontWeight: 'bold',
+			fontSize: 50,
+			point: [Math.floor(view.size.width/2)-455, Math.floor(view.size.height/2)],
+			content: 'Seems like you\'ve become a tadpole.',
+			fillColor: 'white'
+		});
+
+	contents = [
+	'Try moving around a little!', 
+	'You\'re getting the hang of it!', 
+	'How about we speed things up?',
+	'I feel like we\'re too fast now...',
+	'Let\'s slow back down again.',
+	'Have fun being a tadpole!'
+	];
+
+	var sperm = new function() {
+		var center = view.center;
+		var size = 150;
+		var partLength = 2;
+		var path = new Path();
+		for (var i = 0; i < size; i++) {
+			path.add(center - [i * partLength, 0]);
+		}
+		path.strokeColor = 'white';
+
+		var headPath = new Path.Oval({
+			from: [0, 0],
+			to: [13, 8],
+			fillColor: 'white',
+			strokeColor: null
+		});
+		headPath.scale(1.5);
+		var headSymbol = new Symbol(headPath);
+		var head = new PlacedSymbol(headSymbol);
+		var vector = new Point({
+			angle: 0,
+			length: 20
+		});
+		var speed = 5;
+		var maxSteer = 4.5;
+		var friction = 0.98;
+		var steering = 1.5;
+		var maxSpeed = 20;
+		var minSpeed = 8;
+		var position = center;
+		var lastRotation = 0;
+		var count = 0;
+		var newSpeed;
+		var value = 5;
+		var posx = position.x;
+		var posy = position.y;
+		return {
+			slow: function(){
+				value -= 0.3;
+				if (value < 5){
+					value = 5;
+							
+			}
+			},
+			fast: function(){
+				value += 0.5;
+				if (value> maxSpeed){
+					value = maxSpeed;
+			}
+
+		},
+
+			increase_size: function(){
+					
+					for(var i = 0; i < 20; i++){
+						path.add(position - [i*partLength, 0])}
+					//center = position;
+					
+		
+				},
+			intersects: function(){
+				var segments = path.segments;
+				if (path.intersects(head)){
+					console.log('hello world')
+			}
+
+		},
+			left: function() {
+				if (speed >= 0.01) {
+					if (speed < 3 && speed >= 0) {
+						vector.angle -= (speed * 2);
+					} else if (speed < 0) {
+						vector.angle -= (speed / 2);
+					} else {
+						vector.angle -= maxSteer * steering;
+					}
+					speed *= friction;
+				}
+				newSpeed = speed;
+			},
+
+			right: function() {
+				if (speed >= 0.01) {
+					if (speed < 3 && speed >= 0) {
+						vector.angle += (speed * 2);
+					} else if (speed < 0) {
+						vector.angle += (speed / 2);
+					} else {
+						vector.angle += maxSteer * steering;
+					}
+					speed *= friction;
+				}
+				newSpeed = speed;
+			},
+
+			forward: function() {
+				
+				speed = value;
+				return position.y;
+			},
+
+			find_pos: function(){
+				return posx;
+		},
+			reverse: function() {
+				speed += 0.3;
+				if (speed > maxSpeed)
+					speed = maxSpeed;
+			},
+
+			draw: function() {
+				var vec = vector.normalize(Math.abs(speed));
+				speed = speed * friction;
+				position += vec;
+				var lastPoint = path.firstSegment.point = position;
+				var lastVector = vec;
+				var segments = path.segments;
+				for (var i = 1, l = segments.length; i < l; i++) {
+					var segment = segments[i];
+					var vector2 = lastPoint - segment.point;
+					count += vec.length * 10;
+					var rotLength = Math.sin((count + i * 3) / 600);
+					var rotated = lastVector.rotate(90).normalize(rotLength);
+					lastPoint = segment.point = lastPoint + lastVector.normalize(-partLength - vec.length / 10);
+					segment.point += rotated;
+
+					if (i == 1) {
+						head.position = position;
+						var rotation = vector2.angle;
+						head.rotate(rotation - lastRotation);
+						lastRotation = rotation;
+					}
+					lastVector = vector2;
+				}
+				path.smooth();
+				this.constrain();
+				return position
+			},
+			
+			constrain: function() {
+				
+				var bounds = path.bounds;
+				var size = view.size;
+				if (!bounds.intersects(view.bounds)) {
+					if (position.x < -bounds.width)
+						position.x = size.width + bounds.width;
+					if (position.y < -bounds.height)
+						position.y = size.height + bounds.height;
+					if (position.x > size.width + bounds.width)
+						position.x = -bounds.width;
+					if (position.y > size.height + bounds.height)
+						position.y = -bounds.height;
+					path.position = position;
+				return position.x
+				}
+			}
+			
+		}
+	};
+	game_paused = false;
+	game_started = false;
+	has_object = false;
+	fade_out = false;
+	fading = false;
+
+	var newx = -1000;
+	var newy = -1000;
+
+	var viewPoint = randomPoint();
+	newx = viewPoint.x;
+	newy = viewPoint.y;
+	var randomCircle = new Path.Circle(viewPoint, 10);
+	randomCircle.fillColor = '#84CBDA';
+	has_object = false;
+	fading = false;
+	init = false;
+
+	function onFrame() {
+		console.log(fade_out)
+		if (game_paused || !game_started){
+
+			if (Key.isDown('p')){
+				game_paused = false;
+			}
+			if(Key.isDown('space')){
+				game_started = true;
+			}
+		}
+		else{
+			if (!has_object){
+				randomCircle.fillColor = 'white';
+				fading = true;
+				has_object = true;
+				if(init){
+					var newPoint = randomPoint();
+					randomCircle = new Path.Circle(newPoint,10);
+					
+					newx = newPoint.x;
+					newy = newPoint.y;
+					randomCircle.fillColor = 'white'
+				}
+			}
+
+			else{
+				if(randomCircle.opacity >= 1){
+					if(Math.abs(posx-newx)< 100 && Math.abs(posy-newy)<100){
+						//fade_out = true;
+						//sperm.increase_size();
+						
+					}
+				}
+			}
+		
+			if (fade_out){
+				for(var i = 0; i < allFades.length; i++){
+					allFades[i].scale(1.02);	
+				}
+				if (randomCircle.opacity <= 0.02){
+					fade_out = false;
+					has_object = false;
+					init = true;
+
+				}
+				else{
+					if (randomCircle.opacity >= 0.01){
+						randomCircle.opacity -= 0.01;
+						for(var i =0; i < allFades.length; i++){
+							allFades[i].opacity -= 0.01;
+					
+				}
+						
+				}
+				}
+			}
+			else{
+				if (randomCircle.opacity <= 1){
+					randomCircle.opacity += 0.01;
+
+			}
+		}
+			if (text.opacity>= 0.01 && fading){
+				text.opacity -= 0.01;
+				
+			}
+			else if (text.opacity <= 0.01 && fading){
+				if ( pointer < contents.length){
+				fading = false;
+				past = text.content;
+				text.content = contents[pointer++];
+				text.point[0] -= 50*(text.content.length-past.length)
+				
+			}
+			}	
+			else if(fading == false){
+				if (text.opacity<= 1){
+					text.opacity += 0.01;
+			}
+			}
+			//if (Key.isDown('p')){
+			//	game_paused = true;
+			//}
+			if (Key.isDown('left'))
+				sperm.left();
+
+			if (Key.isDown('right'))
+				sperm.right();
+			if (Key.isDown('space'))
+				game_started = true;
+				
+			}
+			if (Key.isDown('space') && game_started && text.content != 'Have fun being a tadpole!'){
+				fading = true;
+		    }
+
+		    if (text.content == 'I feel like we\'re too fast now...' || text.content == 'How about we speed things up?'){
+		   				    	sperm.fast();
+		   				    	
+
+			}
+			if(text.content == 'Let\'s slow back down again.'){
+				sperm.slow();
+		}
+		sperm.forward();
+		var pos = sperm.draw();	
+		var posx = pos.x;
+		var posy = pos.y;
+		if (newx != -1000 && newy != -1000){
+			if(Math.abs(newx-posx) < 50 && Math.abs(newy-posy)< 50){
+				if (!fade_out){
+					splatMusic.play();
+					sperm.increase_size();
+					faders2 = new Path.Circle(new Point(newx, newy), 10);
+					faders2.strokeWidth = '2';
+					faders2.strokeColor = 'white';
+					faders3 = new Path.Circle(new Point(newx, newy), 25);
+					faders3.strokeWidth = '2';
+					faders3.strokeColor = 'white';
+					faders = new Path.Circle(new Point(newx, newy), 1);
+					faders.strokeWidth = '2';
+					faders.strokeColor = 'white';
+					allFades = [];
+					allFades.push(faders);
+					allFades.push(faders2);
+					allFades.push(faders3);
+					fade_out = true;
+					}
+				
+				}
+		}
+		//sperm.intersects();
+		}
+
+function onKeyDown(event) {
+	// Prevent the arrow keys from scrolling the window:
+	return !(/left|right|up|down/.test(event.key));
+}
+
+project.currentStyle = {
+	strokeColor: 'black',
+	strokeWidth: 0,
+	strokeCap: 'round'
+};
+
+
+	</script>
+	<canvas id = 'myCanvas' resize> </canvas>
+</body>
+</html>
