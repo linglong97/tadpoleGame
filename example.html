@@ -11,21 +11,23 @@
 </head>
 <body>
 	<script type="text/paperscript" canvas = 'myCanvas'>
+
 	function randomPoint(){
-	var maxPoint = new Point(view.size.width, view.size.height);
-	var randomPoint = Point.random();
-	var viewPoint = maxPoint*randomPoint;
-	return viewPoint;
-	}
+		var maxPoint = new Point(view.size.width, view.size.height);
+		var randomPoint = Point.random();
+		var viewPoint = maxPoint*randomPoint;
+		return viewPoint;
+		}
 	
 	var backgroundMusic = new Howl({
 		src:['river-2.mp3'],
+		autoplay: true,
 		 loop: true,
 		 volume: 0.2,
 	});
 	
 	var musicOn = new PointText({
-		content: 'Background Music: Off',
+		content: 'Background Music: On',
 		point:[50,50],
 		fillColor:'white',
 		fontFamily:'Roboto Mono',
@@ -45,14 +47,25 @@
 		backgroundMusic.play();
 	}
 }
+	pointer = 0;
+
 	var text = new PointText({
 			fontFamily: 'Roboto Mono',
 			fontWeight: 'bold',
 			fontSize: 50,
-			point: [Math.floor(view.size.width/2)-355, Math.floor(view.size.height/2)],
-			content: 'Press the Space Bar to Start.',
+			point: [Math.floor(view.size.width/2)-455, Math.floor(view.size.height/2)],
+			content: 'Seems like you\'ve become a tadpole.',
 			fillColor: 'white'
 		});
+
+	contents = [
+	'Try moving around a little!', 
+	'You\'re getting the hang of it!', 
+	'How about we speed things up?',
+	'I feel like we\'re too fast now...',
+	'Let\'s slow back down again.',
+	'Have fun being a tadpole!'
+	];
 
 	var sperm = new function() {
 		var center = view.center;
@@ -77,16 +90,35 @@
 			angle: 0,
 			length: 20
 		});
-		var speed = 8;
+		var speed = 5;
 		var maxSteer = 4.5;
 		var friction = 0.98;
 		var steering = 1.5;
-		var maxSpeed = 8;
+		var maxSpeed = 125;
 		var minSpeed = 8;
 		var position = center;
 		var lastRotation = 0;
 		var count = 0;
+		var newSpeed;
+		var value = 5;
 		return {
+			slow: function(){
+				value -= 0.3;
+				if (value < 5){
+					value = 5;
+							
+			}
+			},
+			fast: function(){
+				value += 0.5;
+				if (value> maxSpeed){
+					value = maxSpeed;
+			}
+
+		},
+
+
+			
 			left: function() {
 				if (speed >= 0.01) {
 					if (speed < 3 && speed >= 0) {
@@ -98,6 +130,7 @@
 					}
 					speed *= friction;
 				}
+				newSpeed = speed;
 			},
 
 			right: function() {
@@ -111,17 +144,19 @@
 					}
 					speed *= friction;
 				}
+				newSpeed = speed;
 			},
 
 			forward: function() {
-				speed = 5;
+				
+				speed = value;
 				return position.y;
 			},
 
 			reverse: function() {
-				speed -= 0.3;
-				if (speed < minSpeed)
-					speed = minSpeed;
+				speed += 0.3;
+				if (speed > maxSpeed)
+					speed = maxSpeed;
 			},
 
 			draw: function() {
@@ -176,6 +211,7 @@
 	game_started = false;
 	has_object = false;
 	fade_out = false;
+	fading = false;
 
 	function onFrame() {
 
@@ -194,10 +230,11 @@
 				newx = viewPoint.x;
 				newy = viewPoint.y;
 				var randomCircle = new Path.Circle(viewPoint, 10);
-				randomCircle.fillColor = 'white';
+				//randomCircle.fillColor = 'white';
 				has_object = true;
 				console.log(posx)
 				console.log(newx)
+				fading = true;
 
 			}
 			else{
@@ -216,12 +253,28 @@
 					randomCircle.convert(132,203,218);
 				}
 			}
-			if (text.opacity>= 0.01){
+			if (text.opacity>= 0.01 && fading){
 				text.opacity -= 0.01;
+				
 			}
-			if (Key.isDown('p')){
-				game_paused = true;
+			else if (text.opacity <= 0.01 && fading){
+				if ( pointer < contents.length){
+				fading = false;
+				past = text.content;
+				text.content = contents[pointer++];
+				text.point[0] -= 50*(text.content.length-past.length)
+				console.log('hello')
 			}
+			}	
+			else if(fading == false){
+				console.log('hello1')
+				if (text.opacity<= 1){
+					text.opacity += 0.01;
+			}
+			}
+			//if (Key.isDown('p')){
+			//	game_paused = true;
+			//}
 			if (Key.isDown('left'))
 				sperm.left();
 
@@ -229,10 +282,24 @@
 				sperm.right();
 			if (Key.isDown('space'))
 				game_started = true;
+				
 			}
+			if (Key.isDown('space') && game_started && text.content != 'Have fun being a tadpole!'){
+				fading = true;
+		    }
+
+		    if (text.content == 'I feel like we\'re too fast now...' || text.content == 'How about we speed things up?'){
+		   				    	sperm.fast();
+		   				    	
+
+			}
+			if(text.content == 'Let\'s slow back down again.'){
+				sperm.slow();
+		}
 		var posy = sperm.forward();
 		var posx = sperm.draw();	
-		console.log(posx)
+
+		
 		}
 
 function onKeyDown(event) {
