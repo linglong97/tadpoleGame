@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Blobs</title>
+	<link href="https://fonts.googleapis.com/css?family=Roboto+Mono" rel="stylesheet">
+
+	<script type="text/javascript" src = https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.11.5/paper-full.min.js></script>
+
+	<link rel="stylesheet" type="text/css" href="example.css">
+	<script type="text/javascript" src = 'https://cdnjs.cloudflare.com/ajax/libs/howler/2.0.9/howler.core.min.js'></script>
+</head>
+<body>
+	<script type="text/paperscript" canvas = 'myCanvas'>
+	function randomPoint(){
+	var maxPoint = new Point(view.size.width, view.size.height);
+	var randomPoint = Point.random();
+	var viewPoint = maxPoint*randomPoint;
+	return viewPoint;
+	}
+	
+	var backgroundMusic = new Howl({
+		src:['river-2.mp3'],
+		 loop: true,
+		 volume: 0.2,
+	});
+	
+	var musicOn = new PointText({
+		content: 'Background Music: Off',
+		point:[50,50],
+		fillColor:'white',
+		fontFamily:'Roboto Mono',
+		fontWeight: 'bolt',
+		fontSize:50
+	})
+
+	musicOn.onClick = function(event){
+
+	if( this.content == 'Background Music: On'){
+		this.content = 'Background Music: Off';
+		backgroundMusic.pause();
+	}
+	else{
+		this.content = 'Background Music: On';
+		backgroundMusic.autoplay = true;
+		backgroundMusic.play();
+	}
+}
+	var text = new PointText({
+			fontFamily: 'Roboto Mono',
+			fontWeight: 'bold',
+			fontSize: 50,
+			point: [Math.floor(view.size.width/2)-355, Math.floor(view.size.height/2)],
+			content: 'Press the Space Bar to Start.',
+			fillColor: 'white'
+		});
+
+	var sperm = new function() {
+		var center = view.center;
+		var size = 150;
+		var partLength = 2;
+		var path = new Path();
+		for (var i = 0; i < size; i++) {
+			path.add(center - [i * partLength, 0]);
+		}
+		path.strokeColor = 'white';
+
+		var headPath = new Path.Oval({
+			from: [0, 0],
+			to: [13, 8],
+			fillColor: 'white',
+			strokeColor: null
+		});
+		headPath.scale(1.5);
+		var headSymbol = new Symbol(headPath);
+		var head = new PlacedSymbol(headSymbol);
+		var vector = new Point({
+			angle: 0,
+			length: 20
+		});
+		var speed = 8;
+		var maxSteer = 4.5;
+		var friction = 0.98;
+		var steering = 1.5;
+		var maxSpeed = 8;
+		var minSpeed = 8;
+		var position = center;
+		var lastRotation = 0;
+		var count = 0;
+		return {
+			left: function() {
+				if (speed >= 0.01) {
+					if (speed < 3 && speed >= 0) {
+						vector.angle -= (speed * 2);
+					} else if (speed < 0) {
+						vector.angle -= (speed / 2);
+					} else {
+						vector.angle -= maxSteer * steering;
+					}
+					speed *= friction;
+				}
+			},
+
+			right: function() {
+				if (speed >= 0.01) {
+					if (speed < 3 && speed >= 0) {
+						vector.angle += (speed * 2);
+					} else if (speed < 0) {
+						vector.angle += (speed / 2);
+					} else {
+						vector.angle += maxSteer * steering;
+					}
+					speed *= friction;
+				}
+			},
+
+			forward: function() {
+				speed = 5;
+				return position.y;
+			},
+
+			reverse: function() {
+				speed -= 0.3;
+				if (speed < minSpeed)
+					speed = minSpeed;
+			},
+
+			draw: function() {
+				var vec = vector.normalize(Math.abs(speed));
+				speed = speed * friction;
+				position += vec;
+				var lastPoint = path.firstSegment.point = position;
+				var lastVector = vec;
+				var segments = path.segments;
+				for (var i = 1, l = segments.length; i < l; i++) {
+					var segment = segments[i];
+					var vector2 = lastPoint - segment.point;
+					count += vec.length * 10;
+					var rotLength = Math.sin((count + i * 3) / 600);
+					var rotated = lastVector.rotate(90).normalize(rotLength);
+					lastPoint = segment.point = lastPoint + lastVector.normalize(-partLength - vec.length / 10);
+					segment.point += rotated;
+
+					if (i == 1) {
+						head.position = position;
+						var rotation = vector2.angle;
+						head.rotate(rotation - lastRotation);
+						lastRotation = rotation;
+					}
+					lastVector = vector2;
+				}
+				path.smooth();
+				return this.constrain();
+			},
+			
+			constrain: function() {
+				
+				var bounds = path.bounds;
+				var size = view.size;
+				if (!bounds.intersects(view.bounds)) {
+					if (position.x < -bounds.width)
+						position.x = size.width + bounds.width;
+					if (position.y < -bounds.height)
+						position.y = size.height + bounds.height;
+					if (position.x > size.width + bounds.width)
+						position.x = -bounds.width;
+					if (position.y > size.height + bounds.height)
+						position.y = -bounds.height;
+					path.position = position;
+				return position.x
+				}
+			}
+			
+		}
+	};
+	game_paused = false;
+	game_started = false;
+	has_object = false;
+	fade_out = false;
+
+	function onFrame() {
+
+		if (game_paused || !game_started){
+
+			if (Key.isDown('p')){
+				game_paused = false;
+			}
+			if(Key.isDown('space')){
+				game_started = true;
+			}
+		}
+		else{
+			if (!has_object){
+				var viewPoint = randomPoint();
+				newx = viewPoint.x;
+				newy = viewPoint.y;
+				var randomCircle = new Path.Circle(viewPoint, 10);
+				randomCircle.fillColor = 'white';
+				has_object = true;
+				console.log(posx)
+				console.log(newx)
+
+			}
+			else{
+				
+				if(Math.abs(posx-newx)< 100 && Math.abs(posy-newy)<100){
+					console.log('hello')
+					fade_out = true;
+			}
+		}
+			if (fade_out){
+				if (randomCircle.fillColor == '#84CBDA'){
+					fade_out = false;
+					has_object = false;
+				}
+				else{
+					randomCircle.convert(132,203,218);
+				}
+			}
+			if (text.opacity>= 0.01){
+				text.opacity -= 0.01;
+			}
+			if (Key.isDown('p')){
+				game_paused = true;
+			}
+			if (Key.isDown('left'))
+				sperm.left();
+
+			if (Key.isDown('right'))
+				sperm.right();
+			if (Key.isDown('space'))
+				game_started = true;
+			}
+		var posy = sperm.forward();
+		var posx = sperm.draw();	
+		console.log(posx)
+		}
+
+function onKeyDown(event) {
+	// Prevent the arrow keys from scrolling the window:
+	return !(/left|right|up|down/.test(event.key));
+}
+
+project.currentStyle = {
+	strokeColor: 'black',
+	strokeWidth: 0,
+	strokeCap: 'round'
+};
+
+
+	</script>
+	<canvas id = 'myCanvas' resize> </canvas>
+</body>
+</html>
